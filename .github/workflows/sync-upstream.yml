@@ -104,11 +104,16 @@ jobs:
             # 変更サマリ（追加・削除行数）
             SUMMARY=$(git diff --stat $PREV_SHA $NEW_SHA | tail -n 1)
             
+            # リポジトリ名のみ抽出（owner/repo から repo だけ取得）
+            REPO_NAME=$(echo "$UPSTREAM_REPO" | cut -d'/' -f2)
+            REPO_URL="https://github.com/$UPSTREAM_REPO"
+            
             # ===== Discord 通知の送信 =====
             # jq を使って JSON を安全に構築
             payload=$(jq -n \
-              --arg title "🚀 【$UPSTREAM_REPO】更新を検知" \
+              --arg title "🚀 【$REPO_NAME】更新を検知" \
               --arg author "$AUTHOR" \
+              --arg repo_url "$REPO_URL" \
               --arg msg "$MESSAGE" \
               --arg files "$FILES" \
               --arg summary "$SUMMARY" \
@@ -118,11 +123,11 @@ jobs:
                   color: 3447003,
                   fields: [
                     { name: "👤 更新者", value: $author, inline: true },
+                    { name: "⚙️ リポジトリ", value: $repo_url },
                     { name: "📝 メッセージ", value: $msg },
                     { name: "📁 変更ファイル", value: ("```\n" + $files + "\n```") },
                     { name: "🔍 変更サマリ", value: $summary }
-                  ],
-                  footer: { text: "Kobe Workshop Bot" }
+                  ]
                 }]
               }')
             
