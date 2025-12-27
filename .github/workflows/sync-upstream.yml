@@ -1,8 +1,8 @@
 name: Sync Fork
 on:
   schedule:
-    - cron: '0 * * * *' # 1時間に1回実行
-  workflow_dispatch: # 手動実行も可能にする
+    - cron: "0 * * * *"
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -13,10 +13,62 @@ jobs:
       - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
       - name: Sync with Upstream
+        id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
         with:
           upstream_sync_repo: tnao727272-gif/umabase-AI-2025
           upstream_sync_branch: main
           target_sync_branch: main
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          test_mode: false
+
+      - name: Check for changes and Notify Discord
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          # 同期前の状態 (Checkout時点のHEAD)
+          PREV_SHA=$(git rev-parse HEAD)
+          
+          # 同期後の最新状態を取得
+          git fetch origin main --quiet
+          NEW_SHA=$(git rev-parse origin/main)
+          
+          if [ "$PREV_SHA" != "$NEW_SHA" ]; then
+            echo "New commits detected. Sending notification..."
+            
+            AUTHOR=$(git log -1 origin/main --format='%an')
+            MESSAGE=$(git log -1 origin/main --format='%s')
+            FILES=$(git diff --name-only $PREV_SHA $NEW_SHA | head -n 10 | sed 's/^/- /')
+            COUNT=$(git diff --name-only $PREV_SHA $NEW_SHA | wc -l)
+            if [ "$COUNT" -gt 10 ]; then FILES="$FILES"$'
+- ...その他'; fi
+            
+            REPO_NAME="${{ github.repository }}"
+            
+            # JSON 構築 (jq が入っているので安全にエスケープ)
+            payload=$(jq -n \
+              --arg title "🚀 【${{ REPO_NAME#*/ }}】更新を検知" \
+              --arg author "$AUTHOR" \
+              --arg msg "$MESSAGE" \
+              --arg files "$FILES" \
+              '{{
+                embeds: [{{
+                  title: $title,
+                  color: 3447003,
+                  fields: [
+                    {{ name: "👤 更新者", value: $author, inline: true }},
+                    {{ name: "📝 メッセージ", value: $msg }},
+                    {{ name: "📁 変更ファイル", value: ("```\n" + $files + "\n```") }}
+                  ],
+                  footer: {{ text: "Kobe Workshop Bot" }}
+                }}]
+              }}')
+            
+            curl -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK_URL"
+          else
+            echo "No new commits. Skipping notification."
+          fi
