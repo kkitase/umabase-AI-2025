@@ -51,22 +51,22 @@ jobs:
             
             # JSON 構築 (jq が入っているので安全にエスケープ)
             payload=$(jq -n \
-              --arg title "🚀 【${{ REPO_NAME#*/ }}】更新を検知" \
+              --arg title "🚀 【${{ github.repository }}】更新を検知" \
               --arg author "$AUTHOR" \
               --arg msg "$MESSAGE" \
               --arg files "$FILES" \
-              '{{
-                embeds: [{{
+              '{
+                embeds: [{
                   title: $title,
                   color: 3447003,
                   fields: [
-                    {{ name: "👤 更新者", value: $author, inline: true }},
-                    {{ name: "📝 メッセージ", value: $msg }},
-                    {{ name: "📁 変更ファイル", value: ("```\n" + $files + "\n```") }}
+                    { name: "👤 更新者", value: $author, inline: true },
+                    { name: "📝 メッセージ", value: $msg },
+                    { name: "📁 変更ファイル", value: ("```\n" + $files + "\n```") }
                   ],
-                  footer: {{ text: "Kobe Workshop Bot" }}
-                }}]
-              }}')
+                  footer: { text: "Kobe Workshop Bot" }
+                }]
+              }')
             
             curl -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK_URL"
           else
