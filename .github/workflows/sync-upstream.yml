@@ -35,7 +35,16 @@ jobs:
           fetch-depth: 0  # 全履歴を取得
 
       # ----------------------------------------
-      # ステップ2: 学生のオリジナルリポジトリから同期
+      # ステップ2: 同期前のコミットハッシュを記録
+      # ----------------------------------------
+      - name: Record Current Commit Hash (Before Sync)
+        id: before_sync
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "📍 同期前のコミット: $(git rev-parse --short HEAD)"
+
+      # ----------------------------------------
+      # ステップ3: 学生のオリジナルリポジトリから同期
       # ----------------------------------------
       - name: Sync with Upstream (Student Repository)
         id: sync
@@ -48,28 +57,27 @@ jobs:
           test_mode: false
 
       # ----------------------------------------
-      # ステップ3: 更新があれば Discord に通知
+      # ステップ4: 更新があれば Discord に通知
       # ----------------------------------------
       - name: Notify Discord on Changes
         if: success()
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PREV_SHA: ${{ steps.before_sync.outputs.sha }}
         run: |
-          # ===== 変数の準備 =====
-          # 同期前のコミットハッシュ（チェックアウト時点）
-          PREV_SHA=$(git rev-parse HEAD)
+          # ===== 同期後の最新コミットハッシュを取得 =====
+          NEW_SHA=$(git rev-parse HEAD)
           
-          # 同期後の最新コミットハッシュを取得
-          git fetch origin main --quiet
-          NEW_SHA=$(git rev-parse origin/main)
+          echo "📍 同期前: $PREV_SHA"
+          echo "📍 同期後: $NEW_SHA"
           
           # ===== 更新有無の判定 =====
           if [ "$PREV_SHA" != "$NEW_SHA" ]; then
             echo "📢 新しいコミットを検知しました。Discord に通知を送信します..."
             
             # ===== コミット情報の抽出 =====
-            AUTHOR=$(git log -1 origin/main --format='%an')    # 更新者名
-            MESSAGE=$(git log -1 origin/main --format='%s')    # コミットメッセージ
+            AUTHOR=$(git log -1 --format='%an')    # 更新者名
+            MESSAGE=$(git log -1 --format='%s')    # コミットメッセージ
             
             # 変更されたファイル一覧（最大10件）
             FILES=$(git diff --name-only $PREV_SHA $NEW_SHA | head -n 10 | sed 's/^/- /')
