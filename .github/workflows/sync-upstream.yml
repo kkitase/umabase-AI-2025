@@ -35,10 +35,10 @@ jobs:
           fetch-depth: 0  # 全履歴を取得
 
       # ----------------------------------------
-      # ステップ2: 同期前のコミットハッシュを記録
+      # ステップ2: 同期前の状態を記録
       # ----------------------------------------
-      - name: Record Current Commit Hash (Before Sync)
-        id: before_sync
+      - name: Record Pre-Sync SHA
+        id: pre_sync
         run: |
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           echo "📍 同期前のコミット: $(git rev-parse --short HEAD)"
@@ -63,9 +63,10 @@ jobs:
         if: success()
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          PREV_SHA: ${{ steps.before_sync.outputs.sha }}
+          PREV_SHA: ${{ steps.pre_sync.outputs.sha }}
         run: |
-          # ===== 同期後の最新コミットハッシュを取得 =====
+          # ===== 変数の準備 =====
+          # 同期後の最新コミットハッシュを取得
           NEW_SHA=$(git rev-parse HEAD)
           
           echo "📍 同期前: $PREV_SHA"
