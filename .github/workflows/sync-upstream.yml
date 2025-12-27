@@ -44,12 +44,9 @@ jobs:
             MESSAGE=$(git log -1 origin/main --format='%s')
             FILES=$(git diff --name-only $PREV_SHA $NEW_SHA | head -n 10 | sed 's/^/- /')
             COUNT=$(git diff --name-only $PREV_SHA $NEW_SHA | wc -l)
-            if [ "$COUNT" -gt 10 ]; then FILES="$FILES"$'
-- ...その他'; fi
+            if [ "$COUNT" -gt 10 ]; then FILES="$FILES"$'\n- ...その他'; fi
             
-            REPO_NAME="${{ github.repository }}"
-            
-            # JSON 構築 (jq が入っているので安全にエスケープ)
+            # JSON 構築 (jq を使用して安全にエスケープ)
             payload=$(jq -n \
               --arg title "🚀 【${{ github.repository }}】更新を検知" \
               --arg author "$AUTHOR" \
