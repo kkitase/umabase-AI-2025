@@ -55,6 +55,8 @@ jobs:
           target_sync_branch: main
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
           test_mode: false
+          git_pull_rebase_config: true         # リベースを使用してマージ
+          upstream_pull_args: --no-edit        # 自動マージメッセージを使用
 
       # ----------------------------------------
       # ステップ4: 更新があれば Discord に通知
