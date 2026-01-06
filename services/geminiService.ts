@@ -7,17 +7,27 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 export const generateRaceData = async (raceName: string): Promise<Race> => {
   const prompt = `
     競馬のレース「${raceName}」の出走表データを生成してください。
-    必ずGoogle検索を使用して、実在する（または出走が有力視されている）馬の名前、騎手、オッズを調査してください。
     
+    【重要：データ正確性に関する厳格な指令】
+    1. **Google検索を最大限に活用し、JRA公式サイト、netkeiba、競馬ラボ等から最新・確定情報を取得してください。**
+    2. **馬番・馬名・騎手名・単勝オッズの完全一致**:
+       - 例: 「門松ステークス 2026 京都 14番 ゼットエール 単勝2.5倍」のように、リアルタイムの数値を正確に反映させてください。
+    3. **血統情報 (pedigree) の正確性**:
+       - 「父: ○○ 母: △△ (母父: □□)」の形式で、実在する血統データを1頭ずつ精査して記載してください。捏造は一切禁止です。
+    4. **過去の主要成績 (pastResults) の詳細化**:
+       - 実際にその馬が出走した直近の主要レース名、着順、年を最低3つ、正確にリストアップしてください。
+       - 例: ["25年カノープスS 2着", "25年ブラジルC 5着", "25年阿蘇S 1着"]
+    5. **全頭網羅**: 16頭〜18頭のフルゲートすべてを検索し、欠落なくリストに含めてください。
+
     以下の項目を含めてJSON形式で出力してください：
     - レース名、開催場所、距離、天候、馬場状態
-    - 出走馬（5〜12頭）：
-      - 名前、馬番、騎手、斤量（weight）、近3走の着順、想定タイム、最新または想定オッズ
-      - pastResults: 最近の主要なレース結果3つ程度（例：24年有馬記念 1着）
-      - pedigree: 血統情報（例：父 キタサンブラック、母父 キングカメハメハ）
-      - jockeyCompatibility: この騎手との過去の相性やコンビ実績の簡潔な解説
+    - 出走馬（全頭）：
+      - id, name, number, jockey, weight, lastPositions, avgTime, odds
+      - pastResults: 実在する主要なレース結果3つ
+      - pedigree: 正確な血統情報（父、母、母父）
+      - jockeyCompatibility: 騎手との相性・コンビ実績
     
-    存在しない馬を捏造せず、できる限り正確な最新情報に基づいてください。
+    「プロの競馬アナリスト」として、ファンが納得する正確な裏付けのあるデータを提供してください。
   `;
 
   try {
@@ -89,8 +99,11 @@ export const generateRaceData = async (raceName: string): Promise<Race> => {
 
 export const analyzePaddock = async (
   base64Image: string,
-  horseName: string
+  horseName: string,
+  customInstruction?: string
 ): Promise<PaddockAnalysisResult> => {
+  const userInstruction = customInstruction ? `\n【ユーザーの注目点】: ${customInstruction}\n上記の内容を特に重視して分析してください。` : "";
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -103,7 +116,7 @@ export const analyzePaddock = async (
             },
           },
           {
-            text: `この馬（名前：${horseName}）のパドックでの状態を分析してください。筋肉の張り、毛艶、気合、歩様のリズム、発汗などを評価してください。1から10のスコアと、専門的で簡潔な日本語の解説を提供してください。`,
+            text: `この馬（名前：${horseName}）のパドックでの状態を分析してください。筋肉の張り、毛艶、気合、歩様のリズム、発汗などを総合的に評価してください。${userInstruction} 1から10のスコアと、専門的で簡潔な日本語の解説を提供してください。`,
           },
         ],
       },
@@ -135,8 +148,11 @@ export const analyzePaddock = async (
 
 export const predictRaceOutcome = async (
   race: Race,
-  paddockAnalyses: PaddockAnalysisResult[]
+  paddockAnalyses: PaddockAnalysisResult[],
+  customInstruction?: string
 ): Promise<PredictionReport> => {
+  const userInstruction = customInstruction ? `\n【ユーザーの要望・条件】: ${customInstruction}\nこの内容を考慮し、反映させた予想を提示してください。` : "";
+
   const prompt = `
     以下のレースデータと最新のパドック診断に基づき、プロの競馬予想家として詳細な分析レポートを作成してください。
 
@@ -147,6 +163,8 @@ export const predictRaceOutcome = async (
       const p = paddockAnalyses.find(pa => pa.horseId === h.id || pa.horseId === h.name);
       return `- ${h.name} (馬番:${h.number}): オッズ ${h.odds}, 直近成績: ${h.lastPositions.join(",")}, パドック評価: ${p ? p.score : '未評価（5として扱う）'} - ${p ? p.feedback : ''}`;
     }).join('\n')}
+
+    ${userInstruction}
 
     以下の3点を分析し、指定のJSON形式で返してください：
     1. レース展開予想：どの馬が逃げ、どのようなペースになるか。
