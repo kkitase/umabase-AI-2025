@@ -19,6 +19,10 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
+
+  // カスタム指示用ステート
+  const [paddockInstruction, setPaddockInstruction] = useState('');
+  const [predictionInstruction, setPredictionInstruction] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -112,7 +116,7 @@ const App: React.FC = () => {
         base64Image = canvasRef.current.toDataURL('image/jpeg').split(',')[1];
       }
       if (base64Image) {
-        const result = await analyzePaddock(base64Image, horse.name);
+        const result = await analyzePaddock(base64Image, horse.name, paddockInstruction);
         setAnalyses(prev => ({ ...prev, [selectedHorseId]: { ...result, horseId: selectedHorseId } }));
       }
     } catch (err) {
@@ -123,7 +127,7 @@ const App: React.FC = () => {
   const runPrediction = async () => {
     setIsPredicting(true);
     try {
-      const fullReport = await predictRaceOutcome(currentRace, Object.values(analyses));
+      const fullReport = await predictRaceOutcome(currentRace, Object.values(analyses), predictionInstruction);
       setReport(fullReport);
     } catch (err) { alert("予測に失敗しました。"); } finally { setIsPredicting(false); }
   };
@@ -147,15 +151,32 @@ const App: React.FC = () => {
             </button>
           </form>
 
-          <button onClick={runPrediction} disabled={isPredicting || currentRace.horses.length === 0} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-full font-black transition-all shadow-lg text-sm tracking-widest uppercase">
-            {isPredicting ? '計算中...' : '最終予想'}
-          </button>
+          <div className="flex gap-2">
+             <button onClick={runPrediction} disabled={isPredicting || currentRace.horses.length === 0} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-full font-black transition-all shadow-lg text-sm tracking-widest uppercase">
+              {isPredicting ? '計算中...' : '最終予想'}
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-200">
         <div className="lg:col-span-2 space-y-8">
           
+          {/* 予想こだわり入力欄 */}
+          <section className="bg-slate-800/40 rounded-2xl p-6 border border-slate-700 shadow-xl">
+             <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                予想のこだわり・条件を入力
+             </h3>
+             <textarea 
+               placeholder="例：武豊騎手の馬は外したくない、3連単で高配当を狙いたい、6番の評価を重視してほしい...など"
+               value={predictionInstruction}
+               onChange={(e) => setPredictionInstruction(e.target.value)}
+               className="w-full bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all min-h-[80px] resize-none"
+             />
+             <p className="text-[10px] text-slate-500 mt-2 font-medium italic">※入力された内容は最終予想のロジックに反映されます。</p>
+          </section>
+
           {report && (
             <section className="space-y-6 animate-in fade-in zoom-in-95 duration-700">
               <div className="flex items-center justify-between">
@@ -310,6 +331,18 @@ const App: React.FC = () => {
           <div className="sticky top-28 space-y-6">
             <section className="bg-slate-800 rounded-2xl p-6 border border-slate-700 overflow-hidden shadow-xl">
               <h3 className="text-lg font-black text-white uppercase tracking-tighter mb-4 text-center border-b border-slate-700 pb-2">Paddock AI Analyst</h3>
+              
+              {/* パドック注目点入力欄 */}
+              <div className="mb-4">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">注目ポイントを入力</label>
+                 <textarea 
+                   placeholder="例：歩様のリズム、筋肉の張り、気合の入り方など"
+                   value={paddockInstruction}
+                   onChange={(e) => setPaddockInstruction(e.target.value)}
+                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all min-h-[60px] resize-none"
+                 />
+              </div>
+
               <div className="flex gap-2 mb-4 justify-center">
                 <button onClick={startCamera} className={`p-2.5 rounded-xl text-white transition-all ${mediaSource === 'camera' ? 'bg-emerald-600 ring-4 ring-emerald-500/20' : 'bg-slate-700 hover:bg-slate-600'}`} title="カメラ起動">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
